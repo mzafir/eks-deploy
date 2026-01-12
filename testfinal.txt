@@ -1,0 +1,1705 @@
+
+❯ is ebs io2 has ha / dr mulit az avaialbvility, what is the higher iops can  potentially give us, in case of pod/cluster          
+  interruption we want to avoid the minimal or almost no data loss - what are my optioons in that case?                            
+
+● EBS io2 HA/Multi-AZ Capabilities
+
+  EBS io2 Availability Features
+  ┌────────────────────────┬────────────────────┬───────────────────────┐
+  │        Feature         │      EBS io2       │ EBS io2 Block Express │
+  ├────────────────────────┼────────────────────┼───────────────────────┤
+  │ Multi-AZ Native        │ NO                 │ NO                    │
+  ├────────────────────────┼────────────────────┼───────────────────────┤
+  │ Multi-Attach (same AZ) │ Yes (16 instances) │ Yes (16 instances)    │
+  ├────────────────────────┼────────────────────┼───────────────────────┤
+  │ Durability             │ 99.999% (5 nines)  │ 99.999% (5 nines)     │
+  ├────────────────────────┼────────────────────┼───────────────────────┤
+  │ Availability SLA       │ 99.9%              │ 99.9%                 │
+  ├────────────────────────┼────────────────────┼───────────────────────┤
+  │ Max IOPS               │ 64,000             │ 256,000               │
+  ├────────────────────────┼────────────────────┼───────────────────────┤
+  │ Max Throughput         │ 1 GB/s             │ 4 GB/s                │
+  ├────────────────────────┼────────────────────┼───────────────────────┤
+  │ Max Volume Size        │ 16 TiB             │ 64 TiB                │
+  ├────────────────────────┼────────────────────┼───────────────────────┤
+  │ Latency                │ Sub-millisecond    │ Sub-millisecond       │
+  └────────────────────────┴────────────────────┴───────────────────────┘
+  Critical: EBS is single-AZ only. If the AZ goes down, your EBS volume is unavailable.
+
+  ---
+  EBS io2 Block Express - Maximum IOPS
+  ┌───────────────────────┬────────────────────────────────────────┐
+  │         Spec          │                 Value                  │
+  ├───────────────────────┼────────────────────────────────────────┤
+  │ Max IOPS per volume   │ 256,000                                │
+  ├───────────────────────┼────────────────────────────────────────┤
+  │ Max IOPS per instance │ 400,000 (with multiple volumes)        │
+  ├───────────────────────┼────────────────────────────────────────┤
+  │ IOPS:GB ratio         │ 1,000:1 (256 GB minimum for 256k IOPS) │
+  ├───────────────────────┼────────────────────────────────────────┤
+  │ Max Throughput        │ 4 GB/s                                 │
+  ├───────────────────────┼────────────────────────────────────────┤
+  │ Latency               │ Sub-millisecond                        │
+  └───────────────────────┴────────────────────────────────────────┘
+  Cost for Maximum IOPS (256k IOPS)
+  ┌──────────┬────────────────────────────────┬────────────────┐
+  │ Resource │              Spec              │  Monthly Cost  │
+  ├──────────┼────────────────────────────────┼────────────────┤
+  │ Storage  │ 256 GB (minimum for 256k IOPS) │ $32            │
+  ├──────────┼────────────────────────────────┼────────────────┤
+  │ IOPS     │ 256,000                        │ $16,640        │
+  ├──────────┼────────────────────────────────┼────────────────┤
+  │ Total    │                                │ ~$16,672/month │
+  └──────────┴────────────────────────────────┴────────────────┘
+  ---
+  Data Loss Prevention Options
+
+  Comparison: RPO (Recovery Point Objective)
+  ┌─────────────────────────────┬───────────────┬───────────────┬──────────────┬─────────┬──────────┐
+  │          Solution           │      RPO      │      RTO      │   Multi-AZ   │  Cost   │   IOPS   │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ EBS io2 + Snapshots         │ Minutes-Hours │ Minutes       │ No (manual)  │ $$      │ 256k     │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ EBS io2 Multi-Attach + DRBD │ ~0 (sync)     │ Seconds       │ Yes          │ $$$     │ 256k     │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ FSx ONTAP Multi-AZ          │ 0 (sync)      │ Automatic     │ Yes          │ $$$     │ 80k      │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ FSx ONTAP SnapMirror        │ Minutes       │ Minutes       │ Cross-region │ $$$     │ 80k      │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ EFS                         │ 0 (sync)      │ Automatic     │ Yes          │ $$      │ Lower    │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ MemoryDB for Redis          │ 0 (sync)      │ Automatic     │ Yes          │ $$$     │ Millions │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ Aurora/RDS Multi-AZ         │ 0 (sync)      │ ~30s failover │ Yes          │ $$$     │ Varies   │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ Portworx (on EKS)           │ 0 (sync)      │ Seconds       │ Yes          │ License │ High     │
+  ├─────────────────────────────┼───────────────┼───────────────┼──────────────┼─────────┼──────────┤
+  │ Longhorn (on EKS)           │ 0 (sync)      │ Seconds       │ Yes          │ Free    │ Medium   │
+  └─────────────────────────────┴───────────────┴───────────────┴──────────────┴─────────┴──────────┘
+  ---
+  Zero/Minimal Data Loss Solutions
+
+  Option 1: FSx ONTAP Multi-AZ (Recommended for Filesystem)
+
+  RPO:              0 (synchronous replication)
+  RTO:              Automatic failover (~30 seconds)
+  Data Loss:        ZERO
+  IOPS:             Up to 160,000
+  Multi-AZ:         YES (built-in)
+  K8s PV:           YES
+
+  Architecture:
+  ┌─────────────────────────────────────────────────────────────┐
+  │                    FSx ONTAP Multi-AZ                        │
+  │                                                              │
+  │   ┌─────────────────┐         ┌─────────────────┐           │
+  │   │   Primary       │◀═══════▶│   Standby       │           │
+  │   │   (AZ-1)        │  sync   │   (AZ-2)        │           │
+  │   │                 │  repl   │                 │           │
+  │   └────────┬────────┘         └────────┬────────┘           │
+  │            │                           │                     │
+  │            │    Automatic Failover     │                     │
+  │            │◀─────────────────────────▶│                     │
+  │            │                           │                     │
+  │   ┌────────▼────────┐         ┌────────▼────────┐           │
+  │   │   EKS Nodes     │         │   EKS Nodes     │           │
+  │   │   (AZ-1)        │         │   (AZ-2)        │           │
+  │   └─────────────────┘         └─────────────────┘           │
+  │                                                              │
+  │   If AZ-1 fails → Automatic failover to AZ-2                │
+  │   Data Loss: ZERO                                            │
+  └──────────────────────────────────────────────────────────────┘
+
+  Cost (1 TB): ~$280-400/month
+
+  ---
+  Option 2: Portworx Enterprise (Highest IOPS + HA)
+
+  RPO:              0 (synchronous replication)
+  RTO:              Seconds (automatic)
+  Data Loss:        ZERO
+  IOPS:             Aggregated from all EBS volumes
+  Multi-AZ:         YES
+  K8s PV:           YES (native CSI)
+
+  Architecture:
+  ┌─────────────────────────────────────────────────────────────┐
+  │                    Portworx on EKS                           │
+  │                                                              │
+  │   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
+  │   │  Node 1     │    │  Node 2     │    │  Node 3     │     │
+  │   │  (AZ-1)     │    │  (AZ-2)     │    │  (AZ-1)     │     │
+  │   │             │    │             │    │             │     │
+  │   │ ┌─────────┐ │    │ ┌─────────┐ │    │ ┌─────────┐ │     │
+  │   │ │EBS io2  │ │◀══▶│ │EBS io2  │ │◀══▶│ │EBS io2  │ │     │
+  │   │ │256k IOPS│ │sync│ │256k IOPS│ │sync│ │256k IOPS│ │     │
+  │   │ └─────────┘ │    │ └─────────┘ │    │ └─────────┘ │     │
+  │   └─────────────┘    └─────────────┘    └─────────────┘     │
+  │                                                              │
+  │   Replication factor: 3 (data on 3 nodes across AZs)        │
+  │   Any node/AZ failure → Zero data loss                       │
+  │   Aggregated IOPS: 768,000+ (3 x 256k)                      │
+  └──────────────────────────────────────────────────────────────┘
+
+  Cost:
+  ┌─────────────────────────────────┬────────────────┐
+  │            Component            │  Monthly Cost  │
+  ├─────────────────────────────────┼────────────────┤
+  │ Portworx License                │ ~$125-200/node │
+  ├─────────────────────────────────┼────────────────┤
+  │ 3x EBS io2 (1TB, 64k IOPS each) │ ~$6,600        │
+  ├─────────────────────────────────┼────────────────┤
+  │ Total                           │ ~$7,000+/month │
+  └─────────────────────────────────┴────────────────┘
+  ---
+  Option 3: Longhorn (Free, Open Source)
+
+  RPO:              0 (synchronous replication)
+  RTO:              Seconds
+  Data Loss:        ZERO
+  IOPS:             Limited by network/EBS
+  Multi-AZ:         YES
+  K8s PV:           YES (native CSI)
+  Cost:             FREE (open source)
+
+  Tradeoffs:
+  - Lower performance than Portworx
+  - More operational overhead
+  - Good for cost-sensitive HA
+
+  ---
+  Option 4: EBS + Application-Level Replication
+
+  For databases/applications with built-in replication:
+  ┌───────────────────────────┬───────────────────┬───────────┬──────────┐
+  │        Application        │ Replication Type  │    RPO    │ Multi-AZ │
+  ├───────────────────────────┼───────────────────┼───────────┼──────────┤
+  │ PostgreSQL (Patroni)      │ Streaming         │ 0         │ Yes      │
+  ├───────────────────────────┼───────────────────┼───────────┼──────────┤
+  │ MySQL (Group Replication) │ Sync              │ 0         │ Yes      │
+  ├───────────────────────────┼───────────────────┼───────────┼──────────┤
+  │ MongoDB (Replica Set)     │ Async/Sync        │ 0-seconds │ Yes      │
+  ├───────────────────────────┼───────────────────┼───────────┼──────────┤
+  │ Kafka                     │ ISR               │ 0         │ Yes      │
+  ├───────────────────────────┼───────────────────┼───────────┼──────────┤
+  │ Elasticsearch             │ Shard replication │ 0         │ Yes      │
+  └───────────────────────────┴───────────────────┴───────────┴──────────┘
+  ---
+  Option 5: MemoryDB for Redis (For Key-Value/Cache)
+
+  RPO:              0 (transaction log)
+  RTO:              Automatic failover
+  Data Loss:        ZERO
+  Latency:          Single-digit microseconds
+  Multi-AZ:         YES
+  Durability:       YES (unlike ElastiCache)
+
+  Best for: Session data, real-time transactions, leaderboards
+
+  ---
+  Comparison: Zero Data Loss Solutions
+  ┌─────────────────┬──────────┬─────────┬──────────┬─────┬────────────────────┬────────────┐
+  │    Solution     │   IOPS   │ Latency │ Multi-AZ │ RPO │ Monthly Cost (1TB) │ Complexity │
+  ├─────────────────┼──────────┼─────────┼──────────┼─────┼────────────────────┼────────────┤
+  │ FSx ONTAP       │ 80-160k  │ <1 ms   │ Yes      │ 0   │ ~$300              │ Low        │
+  ├─────────────────┼──────────┼─────────┼──────────┼─────┼────────────────────┼────────────┤
+  │ Portworx + io2  │ 256k+    │ Sub-ms  │ Yes      │ 0   │ ~$7,000+           │ Medium     │
+  ├─────────────────┼──────────┼─────────┼──────────┼─────┼────────────────────┼────────────┤
+  │ Longhorn + gp3  │ 16k      │ 1-2 ms  │ Yes      │ 0   │ ~$200              │ Medium     │
+  ├─────────────────┼──────────┼─────────┼──────────┼─────┼────────────────────┼────────────┤
+  │ EFS             │ Elastic  │ 1-3 ms  │ Yes      │ 0   │ ~$300              │ Low        │
+  ├─────────────────┼──────────┼─────────┼──────────┼─────┼────────────────────┼────────────┤
+  │ EBS io2 (no HA) │ 256k     │ Sub-ms  │ No       │ N/A │ ~$16,000           │ Low        │
+  ├─────────────────┼──────────┼─────────┼──────────┼─────┼────────────────────┼────────────┤
+  │ MemoryDB        │ Millions │ μs      │ Yes      │ 0   │ ~$400              │ Low        │
+  └─────────────────┴──────────┴─────────┴──────────┴─────┴────────────────────┴────────────┘
+  ---
+  Recommendation Matrix
+  ┌──────────────────────────────────────┬─────────────────────┐
+  │            Your Priority             │    Best Solution    │
+  ├──────────────────────────────────────┼─────────────────────┤
+  │ Zero data loss + Filesystem + Simple │ FSx ONTAP Multi-AZ  │
+  ├──────────────────────────────────────┼─────────────────────┤
+  │ Zero data loss + Maximum IOPS        │ Portworx + EBS io2  │
+  ├──────────────────────────────────────┼─────────────────────┤
+  │ Zero data loss + Cost-effective      │ Longhorn + EBS gp3  │
+  ├──────────────────────────────────────┼─────────────────────┤
+  │ Zero data loss + Key-Value (fast)    │ MemoryDB for Redis  │
+  ├──────────────────────────────────────┼─────────────────────┤
+  │ Zero data loss + Database            │ RDS/Aurora Multi-AZ │
+  └──────────────────────────────────────┴─────────────────────┘
+  ---
+  For Your Use Case: /data/customer1/* with Zero Data Loss
+  ┌────────────────────┬────────────┬───────┬────────────────┬─────────────────────┐
+  │       Option       │ Cost/Month │ IOPS  │ Zero Data Loss │   Recommendation    │
+  ├────────────────────┼────────────┼───────┼────────────────┼─────────────────────┤
+  │ FSx ONTAP Multi-AZ │ ~$300      │ 80k   │ Yes            │ Best Balance        │
+  ├────────────────────┼────────────┼───────┼────────────────┼─────────────────────┤
+  │ Longhorn + gp3     │ ~$200      │ 16k   │ Yes            │ Budget Option       │
+  ├────────────────────┼────────────┼───────┼────────────────┼─────────────────────┤
+  │ Portworx + io2     │ ~$7,000+   │ 256k+ │ Yes            │ Maximum Performance │
+  └────────────────────┴────────────┴───────┴────────────────┴─────────────────────┘
+  My Recommendation: FSx ONTAP Multi-AZ - Native Multi-AZ HA, zero data loss, mounts as PV, ~$300/month, no operational overhead.
+
+  Would you like me to add FSx ONTAP Multi-AZ to the Terraform deployment?
+
+✻ Baked for 50s
+
+❯ 2 questiosn, i would need to share these mounts as PV on multiple pods/deploymentet, can i share the 1tb volume coming from any  
+  of the above solution among several k8s cluster to obe used by several different pods /deployment set on the cluster?            
+
+● Sharing PV Across Pods/Deployments and Multiple Clusters
+
+  Question 1: Share Volume Among Multiple Pods/Deployments (Same Cluster)
+  ┌──────────────────────┬────────────────────┬─────────────────────┬─────────────────────────────────────────────────┐
+  │       Solution       │ Share Across Pods? │     Access Mode     │                      Notes                      │
+  ├──────────────────────┼────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+  │ FSx ONTAP            │ Yes                │ ReadWriteMany (RWX) │ NFS - unlimited pods                            │
+  ├──────────────────────┼────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+  │ FSx OpenZFS          │ Yes                │ ReadWriteMany (RWX) │ NFS - unlimited pods                            │
+  ├──────────────────────┼────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+  │ EFS                  │ Yes                │ ReadWriteMany (RWX) │ NFS - unlimited pods                            │
+  ├──────────────────────┼────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+  │ EBS gp3/io2          │ No                 │ ReadWriteOnce (RWO) │ Single pod only                                 │
+  ├──────────────────────┼────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+  │ EBS io2 Multi-Attach │ Limited            │ ReadWriteMany (RWX) │ Same AZ, max 16 nodes, needs cluster filesystem │
+  ├──────────────────────┼────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+  │ Portworx             │ Yes                │ ReadWriteMany (RWX) │ Shared volumes feature                          │
+  ├──────────────────────┼────────────────────┼─────────────────────┼─────────────────────────────────────────────────┤
+  │ Longhorn             │ Yes                │ ReadWriteMany (RWX) │ Via NFS export                                  │
+  └──────────────────────┴────────────────────┴─────────────────────┴─────────────────────────────────────────────────┘
+  ---
+  Question 2: Share Volume Across Multiple K8s Clusters
+  ┌─────────────┬────────────────────────┬─────────────────────────┬───────────────────────────────────┐
+  │  Solution   │ Share Across Clusters? │           How           │            Limitations            │
+  ├─────────────┼────────────────────────┼─────────────────────────┼───────────────────────────────────┤
+  │ FSx ONTAP   │ Yes                    │ Mount same NFS endpoint │ VPC peering/connectivity required │
+  ├─────────────┼────────────────────────┼─────────────────────────┼───────────────────────────────────┤
+  │ FSx OpenZFS │ Yes                    │ Mount same NFS endpoint │ VPC peering/connectivity required │
+  ├─────────────┼────────────────────────┼─────────────────────────┼───────────────────────────────────┤
+  │ EFS         │ Yes                    │ Mount same NFS endpoint │ Same region, VPC peering          │
+  ├─────────────┼────────────────────────┼─────────────────────────┼───────────────────────────────────┤
+  │ EBS         │ No                     │ N/A                     │ Bound to single EC2 instance      │
+  ├─────────────┼────────────────────────┼─────────────────────────┼───────────────────────────────────┤
+  │ Portworx    │ Yes                    │ PX-Federation           │ Complex setup                     │
+  ├─────────────┼────────────────────────┼─────────────────────────┼───────────────────────────────────┤
+  │ Longhorn    │ No                     │ N/A                     │ Cluster-local only                │
+  └─────────────┴────────────────────────┴─────────────────────────┴───────────────────────────────────┘
+  ---
+  Detailed Breakdown
+
+  FSx ONTAP / OpenZFS / EFS (NFS-based)
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                     AWS Account / VPC                            │
+  │                                                                  │
+  │   ┌─────────────────────────────────────────────────────────┐   │
+  │   │              FSx ONTAP / OpenZFS / EFS                   │   │
+  │   │              (1 TB Shared Filesystem)                    │   │
+  │   │                                                          │   │
+  │   │    /data/customer1/*                                     │   │
+  │   │    /data/customer2/*                                     │   │
+  │   │    /data/customer3/*                                     │   │
+  │   └──────────────────────┬──────────────────────────────────┘   │
+  │                          │                                       │
+  │          ┌───────────────┼───────────────┐                      │
+  │          │               │               │                      │
+  │          ▼               ▼               ▼                      │
+  │   ┌────────────┐  ┌────────────┐  ┌────────────┐               │
+  │   │ EKS        │  │ EKS        │  │ EKS        │               │
+  │   │ Cluster 1  │  │ Cluster 2  │  │ Cluster 3  │               │
+  │   │            │  │            │  │            │               │
+  │   │ ┌────────┐ │  │ ┌────────┐ │  │ ┌────────┐ │               │
+  │   │ │ Pod A  │ │  │ │ Pod X  │ │  │ │ Pod M  │ │               │
+  │   │ │ Pod B  │ │  │ │ Pod Y  │ │  │ │ Pod N  │ │               │
+  │   │ │ Pod C  │ │  │ │ Pod Z  │ │  │ │ Pod O  │ │               │
+  │   │ └────────┘ │  │ └────────┘ │  │ └────────┘ │               │
+  │   └────────────┘  └────────────┘  └────────────┘               │
+  │                                                                  │
+  │   ALL pods across ALL clusters mount the SAME filesystem         │
+  │   All see /data/customer1/*, /data/customer2/*, etc.            │
+  └──────────────────────────────────────────────────────────────────┘
+
+  Key Points:
+  - Same FSx/EFS filesystem mounted by multiple clusters
+  - Each cluster creates its own PV/PVC pointing to same NFS endpoint
+  - All pods see identical data in real-time
+  - Changes from Cluster 1 visible immediately in Cluster 2 & 3
+
+  ---
+  Kubernetes Configuration (Multi-Cluster Sharing)
+
+  Cluster 1 - PV/PVC
+
+  apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: shared-customer-data
+  spec:
+    capacity:
+      storage: 1Ti
+    accessModes:
+      - ReadWriteMany           # Multiple pods can read/write
+    persistentVolumeReclaimPolicy: Retain
+    nfs:
+      server: svm-xxx.fs-xxx.fsx.us-east-1.amazonaws.com
+      path: /vol1/customer-data
+  ---
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: customer-data-pvc
+  spec:
+    accessModes:
+      - ReadWriteMany
+    resources:
+      requests:
+        storage: 1Ti
+    volumeName: shared-customer-data
+
+  Cluster 2 - Same PV/PVC (pointing to same FSx)
+
+  apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: shared-customer-data    # Can use same name, different cluster
+  spec:
+    capacity:
+      storage: 1Ti
+    accessModes:
+      - ReadWriteMany
+    persistentVolumeReclaimPolicy: Retain
+    nfs:
+      server: svm-xxx.fs-xxx.fsx.us-east-1.amazonaws.com  # SAME endpoint
+      path: /vol1/customer-data                            # SAME path
+  ---
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: customer-data-pvc
+  spec:
+    accessModes:
+      - ReadWriteMany
+    resources:
+      requests:
+        storage: 1Ti
+    volumeName: shared-customer-data
+
+  ---
+  Same Cluster - Multiple Deployments Sharing PV
+
+  # Deployment 1 - API Service
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: api-service
+  spec:
+    replicas: 3
+    template:
+      spec:
+        containers:
+          - name: api
+            image: myapi:latest
+            volumeMounts:
+              - name: customer-data
+                mountPath: /data
+        volumes:
+          - name: customer-data
+            persistentVolumeClaim:
+              claimName: customer-data-pvc    # Same PVC
+  ---
+  # Deployment 2 - Worker Service
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: worker-service
+  spec:
+    replicas: 5
+    template:
+      spec:
+        containers:
+          - name: worker
+            image: myworker:latest
+            volumeMounts:
+              - name: customer-data
+                mountPath: /data
+        volumes:
+          - name: customer-data
+            persistentVolumeClaim:
+              claimName: customer-data-pvc    # Same PVC - shared!
+  ---
+  # StatefulSet - Database
+  apiVersion: apps/v1
+  kind: StatefulSet
+  metadata:
+    name: database
+  spec:
+    replicas: 3
+    template:
+      spec:
+        containers:
+          - name: db
+            image: mydb:latest
+            volumeMounts:
+              - name: customer-data
+                mountPath: /data
+        volumes:
+          - name: customer-data
+            persistentVolumeClaim:
+              claimName: customer-data-pvc    # Same PVC - shared!
+
+  Result: All 11 pods (3 API + 5 Worker + 3 DB) share the same /data filesystem
+
+  ---
+  Comparison: Multi-Cluster & Multi-Pod Sharing
+  ┌─────────────┬──────────────────────────┬──────────────────┬─────────────────────────────┬──────────────┐
+  │  Solution   │ Multi-Pod (Same Cluster) │  Multi-Cluster   │    Max Concurrent Mounts    │ Consistency  │
+  ├─────────────┼──────────────────────────┼──────────────────┼─────────────────────────────┼──────────────┤
+  │ FSx ONTAP   │ Yes                      │ Yes              │ Unlimited                   │ Strong (NFS) │
+  ├─────────────┼──────────────────────────┼──────────────────┼─────────────────────────────┼──────────────┤
+  │ FSx OpenZFS │ Yes                      │ Yes              │ Unlimited                   │ Strong (NFS) │
+  ├─────────────┼──────────────────────────┼──────────────────┼─────────────────────────────┼──────────────┤
+  │ EFS         │ Yes                      │ Yes              │ Unlimited                   │ Strong (NFS) │
+  ├─────────────┼──────────────────────────┼──────────────────┼─────────────────────────────┼──────────────┤
+  │ EBS io2     │ No (1 pod)               │ No               │ 1 (or 16 with multi-attach) │ N/A          │
+  ├─────────────┼──────────────────────────┼──────────────────┼─────────────────────────────┼──────────────┤
+  │ Portworx    │ Yes                      │ Yes (Federation) │ High                        │ Strong       │
+  ├─────────────┼──────────────────────────┼──────────────────┼─────────────────────────────┼──────────────┤
+  │ Longhorn    │ Yes                      │ No               │ Medium                      │ Strong       │
+  └─────────────┴──────────────────────────┴──────────────────┴─────────────────────────────┴──────────────┘
+  ---
+  Requirements for Cross-Cluster Sharing
+  ┌─────────────────┬──────────────────────┬──────────────────────┬──────────────────────┐
+  │   Requirement   │      FSx ONTAP       │     FSx OpenZFS      │         EFS          │
+  ├─────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
+  │ Same VPC        │ Yes (or VPC peering) │ Yes (or VPC peering) │ Yes (or VPC peering) │
+  ├─────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
+  │ Security Groups │ Allow NFS (2049)     │ Allow NFS (2049)     │ Allow NFS (2049)     │
+  ├─────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
+  │ Same Region     │ Yes                  │ Yes                  │ Yes                  │
+  ├─────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
+  │ Cross-Region    │ Via SnapMirror       │ No                   │ Via Replication      │
+  └─────────────────┴──────────────────────┴──────────────────────┴──────────────────────┘
+  ---
+  Performance Considerations for Shared Access
+  ┌───────────────────────────┬──────────────┬──────────────┬──────────────┐
+  │         Scenario          │  FSx ONTAP   │ FSx OpenZFS  │     EFS      │
+  ├───────────────────────────┼──────────────┼──────────────┼──────────────┤
+  │ 10 pods, same cluster     │ Excellent    │ Excellent    │ Good         │
+  ├───────────────────────────┼──────────────┼──────────────┼──────────────┤
+  │ 100 pods, same cluster    │ Excellent    │ Good         │ Good         │
+  ├───────────────────────────┼──────────────┼──────────────┼──────────────┤
+  │ 3 clusters, 30 pods total │ Excellent    │ Good         │ Good         │
+  ├───────────────────────────┼──────────────┼──────────────┼──────────────┤
+  │ Heavy write concurrency   │ Good (locks) │ Good (locks) │ Good (locks) │
+  ├───────────────────────────┼──────────────┼──────────────┼──────────────┤
+  │ Read-heavy workload       │ Excellent    │ Excellent    │ Excellent    │
+  └───────────────────────────┴──────────────┴──────────────┴──────────────┘
+  ---
+  Summary
+  ┌───────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────┐
+  │               Your Need               │                                         Answer                                         │
+  ├───────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Share PV across pods in same cluster? │ Yes - FSx ONTAP/OpenZFS/EFS all support ReadWriteMany                                  │
+  ├───────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Share PV across multiple clusters?    │ Yes - All NFS-based solutions (FSx, EFS) can be mounted by multiple clusters           │
+  ├───────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Same 1TB volume for all?              │ Yes - Single FSx/EFS filesystem, multiple PV/PVC definitions pointing to same endpoint │
+  ├───────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Real-time data consistency?           │ Yes - NFS provides strong consistency                                                  │
+  └───────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────┘
+  ---
+  Recommendation for Your Use Case
+
+  FSx ONTAP Multi-AZ is the best choice because:
+
+  1. Multi-Pod: Unlimited pods can mount same volume (ReadWriteMany)
+  2. Multi-Cluster: Multiple EKS clusters can mount same filesystem
+  3. Multi-AZ HA: Zero data loss, automatic failover
+  4. Survives Cluster Death: Data independent of any cluster
+  5. Enterprise Features: Snapshots, cloning, quotas per customer directory
+
+  Would you like me to add FSx ONTAP to the Terraform deployment with multi-cluster sharing capability?
+
+✻ Churned for 44s
+
+❯ compare all the options with all trade offs in one table, and record all previous data yuou shared in props_proj.txt and create  
+  a document file as well                                                                                                          
+
+● Bash(sudo tee /home/stratagem-agent777/infra-aws/props_proj.txt > /dev/null << 'EOF'
+      ================================================================================…)
+  ⎿  Created props_proj.txt
+
+● Bash(sudo tee /home/stratagem-agent777/infra-aws/EKS_Storage_Options_Document.md > /dev/null << 'EOF'
+      # EKS Infrastructure & Storage Options Analysis…)
+  ⎿  Created EKS_Storage_Options_Document.md
+
+● Now let me verify the files and display the master comparison table.
+
+● Bash(ls -la /home/stratagem-agent777/infra-aws/*.txt /home/stratagem-agent777/infra-aws/*.md 2>/dev/null)
+  ⎿  -rw-r--r-- 1 root root 13400 Jan 11 02:54 /home/stratagem-agent777/infra-aws/EKS_Storage_Options_Document.md
+     -rw-r--r-- 1 root root 13309 Jan 11 02:53 /home/stratagem-agent777/infra-aws/props_proj.txt
+     -rw-r--r-- 1 root root  2322 Jan  9 04:55 /home/stratagem-agent777/infra-aws/README.md
+
+● Files created successfully:
+  - /home/stratagem-agent777/infra-aws/props_proj.txt (13.3 KB)
+  - /home/stratagem-agent777/infra-aws/EKS_Storage_Options_Document.md (13.4 KB)
+
+  ---
+  Master Comparison Table - All Options & Tradeoffs
+  Feature: Type
+  FSx ONTAP: Filesystem
+  FSx OpenZFS: Filesystem
+  EFS: Filesystem
+  EBS gp3: Block
+  EBS io2: Block
+  EBS io2 Express: Block
+  MemoryDB: Key-Value
+  Portworx: Software-Def
+  Longhorn: Software-Def
+  ────────────────────────────────────────
+  Feature: Max File/Object
+  FSx ONTAP: 16 TiB
+  FSx OpenZFS: 16 TiB
+  EFS: 47.9 TiB
+  EBS gp3: 64 TiB
+  EBS io2: 64 TiB
+  EBS io2 Express: 64 TiB
+  MemoryDB: 512 MB
+  Portworx: Unlimited
+  Longhorn: Unlimited
+  ────────────────────────────────────────
+  Feature: Max IOPS
+  FSx ONTAP: 160,000
+  FSx OpenZFS: 1,000,000
+  EFS: Elastic
+  EBS gp3: 16,000
+  EBS io2: 64,000
+  EBS io2 Express: 256,000
+  MemoryDB: Millions
+  Portworx: 256k+
+  Longhorn: Medium
+  ────────────────────────────────────────
+  Feature: Max Throughput
+  FSx ONTAP: 4 GB/s
+  FSx OpenZFS: 10 GB/s
+  EFS: 10+ GB/s
+  EBS gp3: 1 GB/s
+  EBS io2: 1 GB/s
+  EBS io2 Express: 4 GB/s
+  MemoryDB: 25 Gbps
+  Portworx: Aggregated
+  Longhorn: Medium
+  ────────────────────────────────────────
+  Feature: Latency
+  FSx ONTAP: <1 ms
+  FSx OpenZFS: 200-500 μs
+  EFS: 1-3 ms
+  EBS gp3: 1-2 ms
+  EBS io2: 200-500 μs
+  EBS io2 Express: Sub-ms
+  MemoryDB: 1-5 μs
+  Portworx: Sub-ms
+  Longhorn: 1-2 ms
+  ────────────────────────────────────────
+  Feature: Multi-AZ HA
+  FSx ONTAP: YES
+  FSx OpenZFS: No
+  EFS: YES
+  EBS gp3: No
+  EBS io2: No
+  EBS io2 Express: No
+  MemoryDB: YES
+  Portworx: YES
+  Longhorn: YES
+  ────────────────────────────────────────
+  Feature: Zero Data Loss (RPO=0)
+  FSx ONTAP: YES
+  FSx OpenZFS: No
+  EFS: YES
+  EBS gp3: No
+  EBS io2: No
+  EBS io2 Express: No
+  MemoryDB: YES
+  Portworx: YES
+  Longhorn: YES
+  ────────────────────────────────────────
+  Feature: Multi-Pod (RWX)
+  FSx ONTAP: YES
+  FSx OpenZFS: YES
+  EFS: YES
+  EBS gp3: No
+  EBS io2: Limited
+  EBS io2 Express: Limited
+  MemoryDB: N/A
+  Portworx: YES
+  Longhorn: YES
+  ────────────────────────────────────────
+  Feature: Multi-Cluster Share
+  FSx ONTAP: YES
+  FSx OpenZFS: YES
+  EFS: YES
+  EBS gp3: No
+  EBS io2: No
+  EBS io2 Express: No
+  MemoryDB: YES
+  Portworx: YES
+  Longhorn: No
+  ────────────────────────────────────────
+  Feature: K8s PV Mount
+  FSx ONTAP: YES
+  FSx OpenZFS: YES
+  EFS: YES
+  EBS gp3: YES
+  EBS io2: YES
+  EBS io2 Express: YES
+  MemoryDB: NO
+  Portworx: YES
+  Longhorn: YES
+  ────────────────────────────────────────
+  Feature: Directory Structure
+  FSx ONTAP: YES
+  FSx OpenZFS: YES
+  EFS: YES
+  EBS gp3: No
+  EBS io2: No
+  EBS io2 Express: No
+  MemoryDB: NO
+  Portworx: YES
+  Longhorn: YES
+  ────────────────────────────────────────
+  Feature: Survives Cluster Death
+  FSx ONTAP: YES
+  FSx OpenZFS: YES
+  EFS: YES
+  EBS gp3: YES
+  EBS io2: YES
+  EBS io2 Express: YES
+  MemoryDB: YES
+  Portworx: YES
+  Longhorn: YES
+  ────────────────────────────────────────
+  Feature: Cost (1TB/month)
+  FSx ONTAP: ~$300
+  FSx OpenZFS: ~$195
+  EFS: ~$300
+  EBS gp3: ~$180
+  EBS io2: ~$2,200
+  EBS io2 Express: ~$16,000
+  MemoryDB: ~$400
+  Portworx: ~$7,000+
+  Longhorn: ~$200
+  ────────────────────────────────────────
+  Feature: Complexity
+  FSx ONTAP: Low
+  FSx OpenZFS: Low
+  EFS: Low
+  EBS gp3: Low
+  EBS io2: Low
+  EBS io2 Express: Low
+  MemoryDB: Low
+  Portworx: Medium
+  Longhorn: Medium
+  ---
+  Quick Decision Guide
+  ┌─────────────────────────────┬───────────────────────┬───────────────────┐
+  │          Your Need          │      Best Choice      │        Why        │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Cheapest                    │ EBS gp3               │ $180/TB           │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Highest IOPS                │ FSx OpenZFS           │ 1M IOPS           │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Lowest Latency (disk)       │ EBS io2 Express       │ Sub-ms            │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Lowest Latency (memory)     │ MemoryDB              │ 1-5 μs            │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Multi-AZ HA                 │ FSx ONTAP / EFS       │ Native HA         │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Zero Data Loss              │ FSx ONTAP             │ Sync replication  │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Multi-Pod Sharing           │ FSx ONTAP/OpenZFS/EFS │ NFS RWX           │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Multi-Cluster Sharing       │ FSx ONTAP             │ Best features     │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Directory /data/customer1/* │ FSx ONTAP             │ POSIX + HA        │
+  ├─────────────────────────────┼───────────────────────┼───────────────────┤
+  │ Best Overall                │ FSx ONTAP             │ HA + Sharing + PV │
+  └─────────────────────────────┴───────────────────────┴───────────────────┘
+  ---
+  Would you like me to proceed with adding FSx ONTAP to the Terraform deployment?
+
+✻ Crunched for 2m 40s
+
+❯ add a 4th and  5th column indicating  which option doesn't store a posix/linux file sytem, and which is also not mountable to    
+  unlimited clusterss and pods, we anticipate multi cluster pod writing to this end point, also indicate which can provide         
+  autoscaling features to add adition volume/mounts when it starts comprising performance                                          
+
+● Bash(sudo tee -a /home/stratagem-agent777/infra-aws/props_proj.txt > /dev/null << 'EOF'…)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ record all the previous answer into a txt file and iterate with file proj_storage_file_0001*.txt 
+
+● Bash(sudo tee /home/stratagem-agent777/infra-aws/proj_storage_file_0001.txt > /dev/null << 'ENDOFFILE'
+      ==============================================================…)
+  ⎿  Created proj_storage_file_0001.txt successfully                                                        
+     -rw-r--r-- 1 root root 17472 Jan 11 03:20 /home/stratagem-agent777/infra-aws/proj_storage_file_0001.txt
+
+● Created /home/stratagem-agent777/infra-aws/proj_storage_file_0001.txt (17.5 KB)
+
+  ---
+  Updated Master Comparison Table (with columns 4 & 5)
+  ┌─────────────────────────────┬─────────┬──────────┬─────────┬─────────┬──────────┬───────────┬──────────┬──────────┬──────────────┐
+  │           Feature           │  FSx    │   FSx    │   EFS   │ EBS gp3 │ EBS io2  │ EBS io2   │ MemoryDB │ Portworx │   Longhorn   │
+  │                             │  ONTAP  │ OpenZFS  │         │         │          │    Exp    │          │          │              │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 1. POSIX Filesystem         │ YES     │ YES      │ YES     │ NO      │ NO       │ NO        │ NO       │ YES      │ YES          │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 2. Max IOPS                 │ 160k    │ 1M       │ Elastic │ 16k     │ 64k      │ 256k      │ Millions │ 256k+    │ Medium       │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 3. Multi-AZ HA              │ YES     │ No       │ YES     │ No      │ No       │ No        │ YES      │ YES      │ YES          │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 4. NOT POSIX (Can't store   │ -       │ -        │ -       │ YES     │ YES      │ YES       │ YES      │ -        │ -            │
+  │ /data/customer1/*)          │         │          │         │         │          │           │          │          │              │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 5. NOT Unlimited            │ -       │ -        │ -       │ YES (1  │ YES (16  │ YES (16   │ -        │ -        │ YES (single  │
+  │ Cluster/Pod Mounts          │         │          │         │ pod)    │ max)     │ max)      │          │          │ cluster)     │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 6. Multi-Cluster Write      │ YES     │ YES      │ YES     │ NO      │ NO       │ NO        │ YES      │ YES      │ NO           │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 7. Autoscaling              │ Manual  │ Manual   │ AUTO    │ Manual  │ Manual   │ Manual    │ AUTO     │ AUTO     │ Manual       │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 8. Latency                  │ <1 ms   │ 200-500  │ 1-3 ms  │ 1-2 ms  │ Sub-ms   │ Sub-ms    │ 1-5 μs   │ Sub-ms   │ 1-2 ms       │
+  │                             │         │ μs       │         │         │          │           │          │          │              │
+  ├─────────────────────────────┼─────────┼──────────┼─────────┼─────────┼──────────┼───────────┼──────────┼──────────┼──────────────┤
+  │ 9. Cost (1TB/mo)            │ ~$300   │ ~$195    │ ~$300   │ ~$180   │ ~$2,200  │ ~$16,000  │ ~$400    │ ~$7,000+ │ ~$200        │
+  └─────────────────────────────┴─────────┴──────────┴─────────┴─────────┴──────────┴───────────┴──────────┴──────────┴──────────────┘
+  ---
+  Summary: Exclusions
+
+  NOT POSIX Filesystem (Cannot store /data/customer1/*):
+  ┌───────────────────────┬─────────────────────────────────────┐
+  │       Solution        │               Reason                │
+  ├───────────────────────┼─────────────────────────────────────┤
+  │ EBS gp3               │ Block storage only                  │
+  ├───────────────────────┼─────────────────────────────────────┤
+  │ EBS io2               │ Block storage only                  │
+  ├───────────────────────┼─────────────────────────────────────┤
+  │ EBS io2 Block Express │ Block storage only                  │
+  ├───────────────────────┼─────────────────────────────────────┤
+  │ MemoryDB              │ Key-value store (512 MB max object) │
+  └───────────────────────┴─────────────────────────────────────┘
+  NOT Unlimited Cluster/Pod Mounts:
+  ┌───────────────────────┬────────────────────────────────┐
+  │       Solution        │           Limitation           │
+  ├───────────────────────┼────────────────────────────────┤
+  │ EBS gp3               │ 1 pod only (ReadWriteOnce)     │
+  ├───────────────────────┼────────────────────────────────┤
+  │ EBS io2               │ 16 instances max, same AZ only │
+  ├───────────────────────┼────────────────────────────────┤
+  │ EBS io2 Block Express │ 16 instances max, same AZ only │
+  ├───────────────────────┼────────────────────────────────┤
+  │ Longhorn              │ Single cluster only            │
+  └───────────────────────┴────────────────────────────────┘
+  Has Autoscaling for Performance:
+  ┌──────────┬───────────────────────────────────────────────┐
+  │ Solution │               Autoscaling Type                │
+  ├──────────┼───────────────────────────────────────────────┤
+  │ EFS      │ Fully automatic (storage + throughput + IOPS) │
+  ├──────────┼───────────────────────────────────────────────┤
+  │ MemoryDB │ Auto-sharding                                 │
+  ├──────────┼───────────────────────────────────────────────┤
+  │ Portworx │ Autopilot (license required)                  │
+  └──────────┴───────────────────────────────────────────────┘
+  ---
+  For Your Multi-Cluster Write Use Case
+  ┌──────────────────────────┬───────┬───────────┬─────────────┐
+  │       Requirement        │  EFS  │ FSx ONTAP │ FSx OpenZFS │
+  ├──────────────────────────┼───────┼───────────┼─────────────┤
+  │ POSIX Filesystem         │ YES   │ YES       │ YES         │
+  ├──────────────────────────┼───────┼───────────┼─────────────┤
+  │ Unlimited Pod Mounts     │ YES   │ YES       │ YES         │
+  ├──────────────────────────┼───────┼───────────┼─────────────┤
+  │ Unlimited Cluster Mounts │ YES   │ YES       │ YES         │
+  ├──────────────────────────┼───────┼───────────┼─────────────┤
+  │ Multi-Cluster Write      │ YES   │ YES       │ YES         │
+  ├──────────────────────────┼───────┼───────────┼─────────────┤
+  │ Multi-AZ HA              │ YES   │ YES       │ No          │
+  ├──────────────────────────┼───────┼───────────┼─────────────┤
+  │ Zero Data Loss           │ YES   │ YES       │ No          │
+  ├──────────────────────────┼───────┼───────────┼─────────────┤
+  │ Autoscaling              │ YES   │ No        │ No          │
+  ├──────────────────────────┼───────┼───────────┼─────────────┤
+  │ Cost (1TB)               │ ~$300 │ ~$300     │ ~$195       │
+  └──────────────────────────┴───────┴───────────┴─────────────┘
+  Recommendation: EFS if autoscaling is critical, FSx ONTAP if lower latency is critical.
+
+  Would you like me to proceed with adding one of these to the Terraform deployment?
+
+✻ Cooked for 1m 42s
+
+❯ there is an  issue when the volume on fxontap goes beyond the max limit, what process would need to employ so the k8s clusters   
+  auto provision the additional pv and make them available to the the workload                                                     
+
+● Great question. This is a critical scaling challenge. Let me explain the options for auto-provisioning additional PVs when FSx ONTAP reaches capacity limits.
+
+  FSx ONTAP Volume Limits
+  ┌────────────────┬────────────────────┐
+  │   Limit Type   │      Maximum       │
+  ├────────────────┼────────────────────┤
+  │ Per Volume     │ 300 TiB            │
+  ├────────────────┼────────────────────┤
+  │ Per Filesystem │ 192 TiB (scalable) │
+  ├────────────────┼────────────────────┤
+  │ Per SVM        │ Multiple volumes   │
+  ├────────────────┼────────────────────┤
+  │ Throughput     │ 4 GB/s             │
+  └────────────────┴────────────────────┘
+  ---
+  Solutions for Auto-Provisioning Additional PVs
+
+  Option 1: NetApp Trident CSI Driver (Recommended)
+
+  Trident is NetApp's official CSI driver with auto-expansion and auto-provisioning capabilities.
+
+  Features:
+  - Automatic volume expansion
+  - Dynamic provisioning
+  - Volume snapshots
+  - Storage pools
+  - Auto-grow policies
+
+  Architecture:
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                    Kubernetes Cluster                            │
+  │                                                                  │
+  │   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐        │
+  │   │  Workload   │    │  Workload   │    │  Workload   │        │
+  │   │   Pod A     │    │   Pod B     │    │   Pod C     │        │
+  │   └──────┬──────┘    └──────┬──────┘    └──────┬──────┘        │
+  │          │                  │                  │                 │
+  │          ▼                  ▼                  ▼                 │
+  │   ┌─────────────────────────────────────────────────────┐       │
+  │   │              Trident CSI Controller                  │       │
+  │   │                                                      │       │
+  │   │  • Monitors PVC usage                               │       │
+  │   │  • Auto-expands volumes when threshold reached      │       │
+  │   │  • Creates new volumes when limits hit              │       │
+  │   │  • Manages storage pools                            │       │
+  │   └──────────────────────┬──────────────────────────────┘       │
+  │                          │                                       │
+  └──────────────────────────┼───────────────────────────────────────┘
+                             │
+                             ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                    FSx ONTAP                                     │
+  │                                                                  │
+  │   ┌───────────┐    ┌───────────┐    ┌───────────┐              │
+  │   │  Volume 1 │    │  Volume 2 │    │  Volume 3 │              │
+  │   │  (auto-   │    │  (auto-   │    │  (auto-   │              │
+  │   │  created) │    │  provisioned) │  provisioned) │           │
+  │   └───────────┘    └───────────┘    └───────────┘              │
+  │                                                                  │
+  └──────────────────────────────────────────────────────────────────┘
+
+  Installation & Configuration:
+
+  # 1. Install Trident Operator
+  ---
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: trident
+  ---
+  # Install via Helm
+  # helm install trident netapp-trident/trident-operator -n trident
+
+  # 2. Create Backend Configuration
+  ---
+  apiVersion: trident.netapp.io/v1
+  kind: TridentBackendConfig
+  metadata:
+    name: fsx-ontap-backend
+    namespace: trident
+  spec:
+    version: 1
+    storageDriverName: ontap-nas
+    managementLIF: svm-xxx.fs-xxx.fsx.us-east-1.amazonaws.com
+    dataLIF: svm-xxx.fs-xxx.fsx.us-east-1.amazonaws.com
+    svm: svm-xxx
+    credentials:
+      name: fsx-ontap-secret
+    autoExportPolicy: true
+    autoExportCIDRs:
+      - 10.0.0.0/16
+    storage:
+      - labels:
+          performance: premium
+        defaults:
+          spaceReserve: none
+          encryption: "true"
+          snapshotPolicy: default
+          snapshotReserve: "10"
+
+  # 3. Storage Class with Auto-Expansion
+  ---
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    name: fsx-ontap-auto-expand
+  provisioner: csi.trident.netapp.io
+  allowVolumeExpansion: true  # Enable auto-expansion
+  reclaimPolicy: Retain
+  volumeBindingMode: Immediate
+  parameters:
+    backendType: ontap-nas
+    storagePools: "fsx-ontap-backend:.*"
+    fsType: nfs
+
+  ---
+  Option 2: Volume Auto-Grow Policy (ONTAP Native)
+
+  Configure ONTAP to automatically grow volumes when they reach thresholds.
+
+  # Set auto-grow on FSx ONTAP volume
+  aws fsx update-volume \
+    --volume-id fsvol-xxx \
+    --ontap-configuration '{
+      "SizeInMegabytes": 2048000,
+      "TieringPolicy": {
+        "CoolingPeriod": 31,
+        "Name": "AUTO"
+      },
+      "JunctionPath": "/customer-data",
+      "SecurityStyle": "UNIX",
+      "SnaplockConfiguration": null
+    }'
+
+  ONTAP Auto-Size Settings:
+  # Via ONTAP CLI (if accessible)
+  volume autosize -volume vol1 -mode grow_shrink \
+    -maximum-size 100TB \
+    -minimum-size 1TB \
+    -grow-threshold-percent 85 \
+    -shrink-threshold-percent 50
+
+  ---
+  Option 3: Kubernetes Volume Expansion (Native K8s)
+
+  Enable volume expansion in StorageClass and use PVC resize.
+
+  # StorageClass with expansion enabled
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    name: fsx-ontap-expandable
+  provisioner: csi.trident.netapp.io
+  allowVolumeExpansion: true  # Critical setting
+  parameters:
+    backendType: ontap-nas
+  ---
+  # PVC - can be resized later
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: customer-data
+  spec:
+    accessModes:
+      - ReadWriteMany
+    storageClassName: fsx-ontap-expandable
+    resources:
+      requests:
+        storage: 100Gi  # Can be increased later
+
+  To expand manually:
+  # Patch PVC to increase size
+  kubectl patch pvc customer-data -p '{"spec":{"resources":{"requests":{"storage":"500Gi"}}}}'
+
+  ---
+  Option 4: Custom Auto-Provisioning Controller (Kubernetes Operator)
+
+  Build or deploy a custom controller that monitors PV usage and provisions new volumes.
+
+  # Custom Operator Architecture
+  ---
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: volume-autoscaler
+    namespace: kube-system
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: autoscaler
+            image: custom/volume-autoscaler:latest
+            env:
+              - name: THRESHOLD_PERCENT
+                value: "80"
+              - name: CHECK_INTERVAL
+                value: "60"
+              - name: MAX_VOLUME_SIZE
+                value: "10Ti"
+              - name: AUTO_PROVISION_NEW
+                value: "true"
+
+  Controller Logic:
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                Volume Autoscaler Controller                      │
+  │                                                                  │
+  │   1. Monitor all PVCs every 60 seconds                          │
+  │   2. Check usage via Prometheus/metrics-server                  │
+  │   3. If usage > 80%:                                            │
+  │      a. If volume < max size → Expand existing volume           │
+  │      b. If volume = max size → Create new PVC + update app      │
+  │   4. Update ConfigMap with volume mapping                       │
+  │   5. Notify application to use new volume                       │
+  │                                                                  │
+  └─────────────────────────────────────────────────────────────────┘
+
+  ---
+  Option 5: FlexGroup Volumes (Distributed Storage)
+
+  FSx ONTAP FlexGroup distributes data across multiple aggregates automatically.
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                    FSx ONTAP FlexGroup                           │
+  │                                                                  │
+  │   Single Mount Point: /customer-data                            │
+  │                                                                  │
+  │   ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐   │
+  │   │ Member 1  │  │ Member 2  │  │ Member 3  │  │ Member 4  │   │
+  │   │ 50 TB     │  │ 50 TB     │  │ 50 TB     │  │ 50 TB     │   │
+  │   │ Aggregate1│  │ Aggregate2│  │ Aggregate1│  │ Aggregate2│   │
+  │   └───────────┘  └───────────┘  └───────────┘  └───────────┘   │
+  │                                                                  │
+  │   Total Capacity: 200 TB (appears as single volume)             │
+  │   Auto-balances data across members                              │
+  │   Can add more members when needed                               │
+  │                                                                  │
+  └──────────────────────────────────────────────────────────────────┘
+
+  ---
+  Option 6: Application-Level Sharding with Multiple PVCs
+
+  Design application to use multiple PVCs and shard data.
+
+  # Multiple PVCs for different customer ranges
+  ---
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: customer-data-shard-1  # Customers A-M
+  spec:
+    accessModes: [ReadWriteMany]
+    storageClassName: fsx-ontap
+    resources:
+      requests:
+        storage: 1Ti
+  ---
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: customer-data-shard-2  # Customers N-Z
+  spec:
+    accessModes: [ReadWriteMany]
+    storageClassName: fsx-ontap
+    resources:
+      requests:
+        storage: 1Ti
+  ---
+  # Deployment with multiple mounts
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: data-service
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            volumeMounts:
+              - name: shard-1
+                mountPath: /data/shard1
+              - name: shard-2
+                mountPath: /data/shard2
+        volumes:
+          - name: shard-1
+            persistentVolumeClaim:
+              claimName: customer-data-shard-1
+          - name: shard-2
+            persistentVolumeClaim:
+              claimName: customer-data-shard-2
+
+  ---
+  Recommended Solution: Trident + Prometheus Monitoring
+
+  Complete Auto-Scaling Architecture:
+
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │                         Kubernetes Cluster                                │
+  │                                                                           │
+  │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                 │
+  │  │ Prometheus  │────▶│   Alerts    │────▶│  Trident    │                 │
+  │  │ (monitors   │     │ (threshold  │     │  (expands   │                 │
+  │  │  PV usage)  │     │  triggers)  │     │  volumes)   │                 │
+  │  └─────────────┘     └─────────────┘     └──────┬──────┘                 │
+  │                                                  │                        │
+  │  ┌───────────────────────────────────────────────┼────────────────────┐  │
+  │  │                    Workloads                  │                    │  │
+  │  │  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐         │                    │  │
+  │  │  │Pod 1│  │Pod 2│  │Pod 3│  │Pod N│         │                    │  │
+  │  │  └──┬──┘  └──┬──┘  └──┬──┘  └──┬──┘         │                    │  │
+  │  │     └────────┴────────┴────────┘             │                    │  │
+  │  │                    │                         │                    │  │
+  │  │                    ▼                         ▼                    │  │
+  │  │              ┌─────────────────────────────────┐                  │  │
+  │  │              │     PVC (auto-expanding)        │                  │  │
+  │  │              │     /data/customer/*            │                  │  │
+  │  │              └─────────────────────────────────┘                  │  │
+  │  └───────────────────────────────────────────────────────────────────┘  │
+  │                                                                          │
+  └──────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │                         FSx ONTAP Multi-AZ                                │
+  │                                                                           │
+  │   Volume auto-grows: 100GB → 500GB → 1TB → 5TB → 10TB...                │
+  │   When max reached: Trident creates new volume automatically             │
+  │                                                                           │
+  └──────────────────────────────────────────────────────────────────────────┘
+
+  Prometheus Alert Rule:
+  apiVersion: monitoring.coreos.com/v1
+  kind: PrometheusRule
+  metadata:
+    name: pvc-capacity-alerts
+  spec:
+    groups:
+      - name: pvc-capacity
+        rules:
+          - alert: PVCNearCapacity
+            expr: |
+              (kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes) > 0.80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "PVC {{ $labels.persistentvolumeclaim }} is above 80% capacity"
+
+          - alert: PVCCriticalCapacity
+            expr: |
+              (kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes) > 0.90
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "PVC {{ $labels.persistentvolumeclaim }} is above 90% - immediate expansion needed"
+
+  ---
+  Comparison: Auto-Provisioning Solutions
+  ┌──────────────────────┬──────────────────────┬────────────────────┬────────────┬──────────┐
+  │       Solution       │     Auto-Expand      │ Auto-Provision New │ Complexity │   Cost   │
+  ├──────────────────────┼──────────────────────┼────────────────────┼────────────┼──────────┤
+  │ Trident CSI          │ YES                  │ YES                │ Medium     │ Free     │
+  ├──────────────────────┼──────────────────────┼────────────────────┼────────────┼──────────┤
+  │ ONTAP Auto-Grow      │ YES                  │ NO                 │ Low        │ Free     │
+  ├──────────────────────┼──────────────────────┼────────────────────┼────────────┼──────────┤
+  │ K8s Volume Expansion │ YES (manual trigger) │ NO                 │ Low        │ Free     │
+  ├──────────────────────┼──────────────────────┼────────────────────┼────────────┼──────────┤
+  │ Custom Operator      │ YES                  │ YES                │ High       │ Dev time │
+  ├──────────────────────┼──────────────────────┼────────────────────┼────────────┼──────────┤
+  │ FlexGroup            │ YES                  │ Auto-balance       │ Medium     │ Free     │
+  ├──────────────────────┼──────────────────────┼────────────────────┼────────────┼──────────┤
+  │ App Sharding         │ NO                   │ Manual             │ High       │ Free     │
+  └──────────────────────┴──────────────────────┴────────────────────┴────────────┴──────────┘
+  ---
+  Recommendation for Your Multi-Cluster Setup
+
+  Deploy Trident CSI Driver with these settings:
+
+  1. Enable volume auto-expansion in StorageClass
+  2. Set ONTAP auto-grow policies on backend
+  3. Deploy Prometheus to monitor PVC usage
+  4. Create alerts at 80% and 90% thresholds
+  5. Configure Trident to auto-provision when limits reached
+
+  Would you like me to add Trident CSI driver configuration to the Terraform deployment?
+
+✻ Worked for 1m 1s
+
+❯ keep in mind the ontap doesn't have autoscaling feature enabled. so we have to find an alternate way to handle this 
+
+● Understood. Since FSx ONTAP lacks autoscaling, here are alternative architectures to handle volume capacity automatically.
+
+  ---
+  Alternative Solutions (Without ONTAP Autoscaling)
+
+  Solution 1: Hybrid Architecture - ONTAP + EFS Overflow
+
+  Use FSx ONTAP as primary (performance), EFS as overflow (autoscaling).
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                         Kubernetes Cluster                               │
+  │                                                                          │
+  │   ┌──────────────────────────────────────────────────────────────────┐  │
+  │   │                     Storage Router Pod                            │  │
+  │   │                                                                   │  │
+  │   │   1. Check ONTAP capacity via metrics                            │  │
+  │   │   2. If < 80% → Write to ONTAP (/data/primary)                   │  │
+  │   │   3. If > 80% → Write to EFS (/data/overflow)                    │  │
+  │   │   4. Read: Check both locations                                   │  │
+  │   │                                                                   │  │
+  │   └───────────────────────┬───────────────────────────────────────────┘  │
+  │                           │                                              │
+  │              ┌────────────┴────────────┐                                │
+  │              ▼                         ▼                                │
+  │   ┌─────────────────────┐   ┌─────────────────────┐                    │
+  │   │   FSx ONTAP PV      │   │      EFS PV         │                    │
+  │   │   (Primary - Fast)  │   │   (Overflow - Auto) │                    │
+  │   │                     │   │                     │                    │
+  │   │   /data/primary     │   │   /data/overflow    │                    │
+  │   │   - Low latency     │   │   - Auto-scaling    │                    │
+  │   │   - Fixed size      │   │   - Unlimited       │                    │
+  │   └─────────────────────┘   └─────────────────────┘                    │
+  │                                                                          │
+  └──────────────────────────────────────────────────────────────────────────┘
+
+  Deployment Configuration:
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: data-service
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            env:
+              - name: PRIMARY_STORAGE_PATH
+                value: "/data/primary"
+              - name: OVERFLOW_STORAGE_PATH
+                value: "/data/overflow"
+              - name: OVERFLOW_THRESHOLD_PERCENT
+                value: "80"
+            volumeMounts:
+              - name: ontap-primary
+                mountPath: /data/primary
+              - name: efs-overflow
+                mountPath: /data/overflow
+        volumes:
+          - name: ontap-primary
+            persistentVolumeClaim:
+              claimName: ontap-pvc
+          - name: efs-overflow
+            persistentVolumeClaim:
+              claimName: efs-pvc
+  ---
+  # ONTAP PVC (fixed size, high performance)
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: ontap-pvc
+  spec:
+    accessModes: [ReadWriteMany]
+    storageClassName: fsx-ontap
+    resources:
+      requests:
+        storage: 1Ti
+  ---
+  # EFS PVC (auto-scaling overflow)
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: efs-pvc
+  spec:
+    accessModes: [ReadWriteMany]
+    storageClassName: efs-sc
+    resources:
+      requests:
+        storage: 100Gi  # Grows automatically
+
+  ---
+  Solution 2: Kubernetes Operator with AWS Lambda Provisioning
+
+  Custom operator monitors PVC usage and triggers Lambda to provision new FSx ONTAP volumes.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                              Architecture                                │
+  │                                                                          │
+  │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                  │
+  │  │ Prometheus  │───▶│ AlertManager│───▶│   Lambda    │                  │
+  │  │ (metrics)   │    │ (threshold) │    │ (provision) │                  │
+  │  └─────────────┘    └─────────────┘    └──────┬──────┘                  │
+  │                                               │                          │
+  │                                               ▼                          │
+  │                                        ┌─────────────┐                  │
+  │                                        │  FSx ONTAP  │                  │
+  │                                        │ Create New  │                  │
+  │                                        │   Volume    │                  │
+  │                                        └──────┬──────┘                  │
+  │                                               │                          │
+  │                                               ▼                          │
+  │  ┌─────────────────────────────────────────────────────────────────┐   │
+  │  │                    Kubernetes Cluster                            │   │
+  │  │                                                                  │   │
+  │  │   Lambda creates:                                                │   │
+  │  │   1. New FSx ONTAP Volume                                       │   │
+  │  │   2. New PV in Kubernetes                                       │   │
+  │  │   3. Updates ConfigMap with new volume mapping                  │   │
+  │  │   4. Application reads ConfigMap and mounts new volume          │   │
+  │  │                                                                  │   │
+  │  └─────────────────────────────────────────────────────────────────┘   │
+  │                                                                          │
+  └──────────────────────────────────────────────────────────────────────────┘
+
+  Lambda Function (Python):
+  import boto3
+  import kubernetes
+  from kubernetes import client, config
+
+  def lambda_handler(event, context):
+      # 1. Create new FSx ONTAP volume
+      fsx = boto3.client('fsx')
+
+      new_volume = fsx.create_volume(
+          VolumeType='ONTAP',
+          Name=f"customer-data-{event['shard_id']}",
+          OntapConfiguration={
+              'JunctionPath': f"/vol{event['shard_id']}",
+              'SizeInMegabytes': 1024000,  # 1TB
+              'StorageVirtualMachineId': event['svm_id'],
+              'StorageEfficiencyEnabled': True,
+              'TieringPolicy': {'Name': 'AUTO'}
+          }
+      )
+
+      # 2. Create PV in Kubernetes
+      config.load_incluster_config()
+      v1 = client.CoreV1Api()
+
+      pv = client.V1PersistentVolume(
+          metadata=client.V1ObjectMeta(
+              name=f"ontap-pv-{event['shard_id']}"
+          ),
+          spec=client.V1PersistentVolumeSpec(
+              capacity={'storage': '1Ti'},
+              access_modes=['ReadWriteMany'],
+              persistent_volume_reclaim_policy='Retain',
+              nfs=client.V1NFSVolumeSource(
+                  server=event['nfs_server'],
+                  path=f"/vol{event['shard_id']}"
+              )
+          )
+      )
+      v1.create_persistent_volume(pv)
+
+      # 3. Create PVC
+      pvc = client.V1PersistentVolumeClaim(
+          metadata=client.V1ObjectMeta(
+              name=f"ontap-pvc-{event['shard_id']}",
+              namespace='default'
+          ),
+          spec=client.V1PersistentVolumeClaimSpec(
+              access_modes=['ReadWriteMany'],
+              resources=client.V1ResourceRequirements(
+                  requests={'storage': '1Ti'}
+              ),
+              volume_name=f"ontap-pv-{event['shard_id']}"
+          )
+      )
+      v1.create_namespaced_persistent_volume_claim('default', pvc)
+
+      # 4. Update ConfigMap
+      config_map = v1.read_namespaced_config_map('volume-mapping', 'default')
+      config_map.data[f"shard-{event['shard_id']}"] = f"ontap-pvc-{event['shard_id']}"
+      v1.patch_namespaced_config_map('volume-mapping', 'default', config_map)
+
+      return {'statusCode': 200, 'volumeId': new_volume['Volume']['VolumeId']}
+
+  ---
+  Solution 3: Volume Pool with Pre-Provisioned PVs
+
+  Pre-provision multiple ONTAP volumes and use a controller to allocate them dynamically.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                         Pre-Provisioned Volume Pool                      │
+  │                                                                          │
+  │   FSx ONTAP Filesystem                                                  │
+  │   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐          │
+  │   │ Vol 1   │ │ Vol 2   │ │ Vol 3   │ │ Vol 4   │ │ Vol 5   │          │
+  │   │ 1TB     │ │ 1TB     │ │ 1TB     │ │ 1TB     │ │ 1TB     │          │
+  │   │ ACTIVE  │ │ ACTIVE  │ │ STANDBY │ │ STANDBY │ │ STANDBY │          │
+  │   └────┬────┘ └────┬────┘ └─────────┘ └─────────┘ └─────────┘          │
+  │        │          │                                                      │
+  │        ▼          ▼                                                      │
+  │   ┌─────────┐ ┌─────────┐                                               │
+  │   │ PV-1    │ │ PV-2    │     Pool Controller:                          │
+  │   │ Bound   │ │ Bound   │     • Monitors active PV usage                │
+  │   └────┬────┘ └────┬────┘     • When PV > 80%, activate next standby    │
+  │        │          │           • Update app ConfigMap                     │
+  │        ▼          ▼           • Alert when pool running low             │
+  │   ┌─────────────────────┐                                               │
+  │   │     Application     │                                               │
+  │   │  Reads ConfigMap    │                                               │
+  │   │  for volume list    │                                               │
+  │   └─────────────────────┘                                               │
+  │                                                                          │
+  └──────────────────────────────────────────────────────────────────────────┘
+
+  Volume Pool Controller:
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: volume-pool-controller
+    namespace: kube-system
+  spec:
+    replicas: 1
+    template:
+      spec:
+        serviceAccountName: volume-controller-sa
+        containers:
+          - name: controller
+            image: volume-pool-controller:latest
+            env:
+              - name: USAGE_THRESHOLD
+                value: "80"
+              - name: CHECK_INTERVAL_SECONDS
+                value: "30"
+              - name: VOLUME_POOL_CONFIGMAP
+                value: "volume-pool"
+              - name: APP_CONFIGMAP
+                value: "active-volumes"
+            volumeMounts:
+              - name: config
+                mountPath: /etc/controller
+        volumes:
+          - name: config
+            configMap:
+              name: volume-pool
+  ---
+  # ConfigMap tracking all volumes
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: volume-pool
+  data:
+    pool.yaml: |
+      volumes:
+        - name: ontap-vol-1
+          pvc: ontap-pvc-1
+          status: active
+          capacity: 1Ti
+        - name: ontap-vol-2
+          pvc: ontap-pvc-2
+          status: active
+          capacity: 1Ti
+        - name: ontap-vol-3
+          pvc: ontap-pvc-3
+          status: standby
+          capacity: 1Ti
+        - name: ontap-vol-4
+          pvc: ontap-pvc-4
+          status: standby
+          capacity: 1Ti
+        - name: ontap-vol-5
+          pvc: ontap-pvc-5
+          status: standby
+          capacity: 1Ti
+  ---
+  # ConfigMap for application (active volumes only)
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: active-volumes
+  data:
+    volumes: "ontap-pvc-1,ontap-pvc-2"
+
+  ---
+  Solution 4: KEDA-Based Auto-Provisioning
+
+  Use KEDA (Kubernetes Event-Driven Autoscaling) to trigger provisioning jobs.
+
+  # KEDA ScaledJob - triggers when PVC usage exceeds threshold
+  apiVersion: keda.sh/v1alpha1
+  kind: ScaledJob
+  metadata:
+    name: volume-provisioner
+  spec:
+    jobTargetRef:
+      template:
+        spec:
+          containers:
+            - name: provisioner
+              image: volume-provisioner:latest
+              env:
+                - name: FSX_FILESYSTEM_ID
+                  value: "fs-xxx"
+                - name: SVM_ID
+                  value: "svm-xxx"
+          restartPolicy: Never
+    triggers:
+      - type: prometheus
+        metadata:
+          serverAddress: http://prometheus:9090
+          metricName: pvc_usage_percent
+          threshold: "80"
+          query: |
+            max(
+              kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"ontap-.*"} 
+              / 
+              kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"ontap-.*"}
+            ) * 100
+    pollingInterval: 30
+    minReplicaCount: 0
+    maxReplicaCount: 1
+
+  ---
+  Solution 5: Switch to EFS (Native Autoscaling)
+
+  If autoscaling is critical, consider EFS as primary storage.
+
+  Comparison: ONTAP vs EFS for Your Use Case
+  ┌───────────────┬──────────────────────────┬──────────────┐
+  │    Feature    │        FSx ONTAP         │     EFS      │
+  ├───────────────┼──────────────────────────┼──────────────┤
+  │ Autoscaling   │ NO                       │ YES (native) │
+  ├───────────────┼──────────────────────────┼──────────────┤
+  │ Latency       │ <1 ms                    │ 1-3 ms       │
+  ├───────────────┼──────────────────────────┼──────────────┤
+  │ Max IOPS      │ 160,000                  │ Elastic      │
+  ├───────────────┼──────────────────────────┼──────────────┤
+  │ Multi-AZ HA   │ YES                      │ YES          │
+  ├───────────────┼──────────────────────────┼──────────────┤
+  │ Multi-Cluster │ YES                      │ YES          │
+  ├───────────────┼──────────────────────────┼──────────────┤
+  │ Complexity    │ Higher (need workaround) │ Simple       │
+  ├───────────────┼──────────────────────────┼──────────────┤
+  │ Cost (1TB)    │ ~$300                    │ ~$300        │
+  └───────────────┴──────────────────────────┴──────────────┘
+  If latency is acceptable (1-3ms), EFS eliminates all provisioning complexity.
+
+  ---
+  Solution 6: UnionFS/MergerFS - Combine Multiple Volumes
+
+  Use a filesystem overlay to present multiple ONTAP volumes as single mount.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                              Application                                 │
+  │                                   │                                      │
+  │                                   ▼                                      │
+  │                          /data/customers                                 │
+  │                        (single mount point)                             │
+  │                                   │                                      │
+  │                           ┌───────┴───────┐                             │
+  │                           │   MergerFS    │                             │
+  │                           │  (overlay)    │                             │
+  │                           └───────┬───────┘                             │
+  │                                   │                                      │
+  │              ┌────────────────────┼────────────────────┐                │
+  │              │                    │                    │                │
+  │              ▼                    ▼                    ▼                │
+  │      ┌─────────────┐      ┌─────────────┐      ┌─────────────┐         │
+  │      │ ONTAP Vol 1 │      │ ONTAP Vol 2 │      │ ONTAP Vol 3 │         │
+  │      │ /mnt/vol1   │      │ /mnt/vol2   │      │ /mnt/vol3   │         │
+  │      │ 1TB         │      │ 1TB         │      │ 1TB         │         │
+  │      └─────────────┘      └─────────────┘      └─────────────┘         │
+  │                                                                          │
+  │      MergerFS policy: Write to volume with most free space              │
+  │      Reads: Search all volumes                                          │
+  │                                                                          │
+  └──────────────────────────────────────────────────────────────────────────┘
+
+  MergerFS Sidecar Container:
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: data-service
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            volumeMounts:
+              - name: merged-data
+                mountPath: /data
+
+          - name: mergerfs-sidecar
+            image: mergerfs:latest
+            securityContext:
+              privileged: true
+            command:
+              - mergerfs
+              - -o
+              - defaults,allow_other,use_ino,category.create=mfs
+              - /mnt/vol1:/mnt/vol2:/mnt/vol3
+              - /merged
+            volumeMounts:
+              - name: ontap-vol-1
+                mountPath: /mnt/vol1
+              - name: ontap-vol-2
+                mountPath: /mnt/vol2
+              - name: ontap-vol-3
+                mountPath: /mnt/vol3
+              - name: merged-data
+                mountPath: /merged
+                mountPropagation: Bidirectional
+
+        volumes:
+          - name: ontap-vol-1
+            persistentVolumeClaim:
+              claimName: ontap-pvc-1
+          - name: ontap-vol-2
+            persistentVolumeClaim:
+              claimName: ontap-pvc-2
+          - name: ontap-vol-3
+            persistentVolumeClaim:
+              claimName: ontap-pvc-3
+          - name: merged-data
+            emptyDir: {}
+
+  ---
+  Comparison: All Alternative Solutions
+  ┌──────────────────────┬────────────────┬────────────┬───────────┬──────────────────────┬────────────────────────┐
+  │       Solution       │ Auto-Provision │ Complexity │ Downtime  │         Cost         │        Best For        │
+  ├──────────────────────┼────────────────┼────────────┼───────────┼──────────────────────┼────────────────────────┤
+  │ Hybrid ONTAP + EFS   │ EFS auto       │ Medium     │ None      │ $$                   │ Performance + overflow │
+  ├──────────────────────┼────────────────┼────────────┼───────────┼──────────────────────┼────────────────────────┤
+  │ Lambda Provisioner   │ Yes (event)    │ High       │ Minimal   │ $                    │ Full automation        │
+  ├──────────────────────┼────────────────┼────────────┼───────────┼──────────────────────┼────────────────────────┤
+  │ Pre-Provisioned Pool │ Pool-based     │ Medium     │ None      │ $$$ (over-provision) │ Predictable growth     │
+  ├──────────────────────┼────────────────┼────────────┼───────────┼──────────────────────┼────────────────────────┤
+  │ KEDA Trigger         │ Yes (metric)   │ Medium     │ Minimal   │ $                    │ Event-driven           │
+  ├──────────────────────┼────────────────┼────────────┼───────────┼──────────────────────┼────────────────────────┤
+  │ Switch to EFS        │ Native         │ Low        │ Migration │ $$                   │ Simplest solution      │
+  ├──────────────────────┼────────────────┼────────────┼───────────┼──────────────────────┼────────────────────────┤
+  │ MergerFS Overlay     │ Add volumes    │ Medium     │ None      │ $$                   │ Transparent scaling    │
+  └──────────────────────┴────────────────┴────────────┴───────────┴──────────────────────┴────────────────────────┘
+  ---
+  Recommendation
+
+  For your multi-cluster write workload without ONTAP autoscaling:
+
+  Option A: Hybrid ONTAP + EFS (Recommended)
+
+  - ONTAP for high-performance primary storage
+  - EFS for auto-scaling overflow
+  - No provisioning complexity
+  - Best of both worlds
+
+  Option B: Pre-Provisioned Pool + Controller
+
+  - Pre-create 5-10 ONTAP volumes
+  - Controller activates as needed
+  - Predictable, no external dependencies
+
+  Option C: Switch to EFS
+
+  - Native autoscaling
+  - Slightly higher latency (1-3ms)
+  - Zero provisioning complexity
+
+
